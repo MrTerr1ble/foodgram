@@ -1,5 +1,6 @@
-from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.db import models  # type: ignore
+from django.core.validators import RegexValidator  # type: ignore
+from django.contrib.auth.models import AbstractUser  # type: ignore
 
 MAX_LENGTH_FIELD = 150
 
@@ -14,6 +15,10 @@ class User(AbstractUser):
         "Имя пользователя",
         max_length=MAX_LENGTH_FIELD,
         unique=True,
+        validators=[RegexValidator(
+            regex=r'^[\w.@+-]+$',
+            message='Введен некорекнтый логин.'
+        ), ],
     )
 
     first_name = models.CharField(

@@ -1,6 +1,6 @@
 from django.contrib import admin # type: ignore
 
-from .models import Tag, Ingredient, Recipe, IngredientInRecipe, CartItem, FavoriteItem
+from .models import Tag, Ingredient, Recipe, IngredientInRecipe
 
 
 class IngredientInRecipeInline(admin.TabularInline):
@@ -37,6 +37,7 @@ class IngredientAdmin(admin.ModelAdmin):
     search_fields = (
         'name',
     )
+    ordering = ('id',)
 
 
 @admin.register(Recipe)

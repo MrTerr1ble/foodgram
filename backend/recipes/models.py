@@ -1,5 +1,9 @@
-from django.db import models  # type: ignore
-from django.core.validators import RegexValidator, MinValueValidator  # type: ignore
+from django.core.validators import (
+    MinValueValidator,
+    RegexValidator,
+)
+from django.db import models
+
 from users.models import User
 
 

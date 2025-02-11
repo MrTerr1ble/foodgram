@@ -1,13 +1,16 @@
-from django.contrib import admin # type: ignore
+from django.contrib import admin
 
-from .models import Tag, Ingredient, Recipe, IngredientInRecipe
+from .models import Ingredient, Recipe, Tag
 
 
-class IngredientInRecipeInline(admin.TabularInline):
-    model = IngredientInRecipe
-    min_num = 1  # Минимальное количество форм, которые должны быть заполнены
-    verbose_name = 'Ингредиент'
-    verbose_name_plural = 'Ингредиенты'
+class RecipeIngredientsInLine(admin.TabularInline):
+    model = Recipe.ingredients.through
+    extra = 1
+
+
+class RecipeTagsInLine(admin.TabularInline):
+    model = Recipe.tags.through
+    extra = 1
 
 
 @admin.register(Tag)
@@ -17,9 +20,8 @@ class TagAdmin(admin.ModelAdmin):
         'name',
         'slug'
     )
-    list_editable = (
+    search_fields = (
         'name',
-        'slug'
     )
 
 
@@ -27,10 +29,6 @@ class TagAdmin(admin.ModelAdmin):
 class IngredientAdmin(admin.ModelAdmin):
     list_display = (
         'id',
-        'name',
-        'measurement_unit'
-    )
-    list_editable = (
         'name',
         'measurement_unit'
     )
@@ -64,4 +62,4 @@ class RecipeAdmin(admin.ModelAdmin):
     list_filter = (
         'tags',
     )
-    inlines = [IngredientInRecipeInline]
+    inlines = (RecipeIngredientsInLine, RecipeTagsInLine)

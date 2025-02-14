@@ -5,13 +5,14 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet
 from rest_framework import status, viewsets
-from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import (
     AllowAny,
     IsAuthenticated,
     IsAuthenticatedOrReadOnly,
 )
+from rest_framework.response import Response
+
 from api.pagination import CustomLimitPagination
 from api.serializers import (
     AvatarSerializer,
@@ -32,6 +33,7 @@ from recipes.models import (
     Tag,
 )
 from users.models import Subscription
+
 from .filters import IngredientFilter, RecipeFilter
 from .permissions import IsAdminAuthorOrReadOnly
 
@@ -260,7 +262,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def get_link(self, request, pk=None):
         try:
             recipe = self.get_object()
-            relative_url = f"/api/recipes/{recipe.pk}/"
+            relative_url = f"/recipes/{recipe.pk}/"
             short_link = request.build_absolute_uri(relative_url)
             return Response(
                 {'short-link': short_link},

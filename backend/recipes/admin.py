@@ -41,11 +41,8 @@ class IngredientAdmin(admin.ModelAdmin):
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
     list_display = (
-        'id',
         'name',
-        'text',
         'image',
-        'cooking_time',
         'author',
         'count_favorites'
     )

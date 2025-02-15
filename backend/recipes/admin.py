@@ -1,5 +1,5 @@
 from django.contrib import admin
-
+from django.db.models import Count
 from .models import Ingredient, Recipe, Tag
 
 
@@ -47,6 +47,7 @@ class RecipeAdmin(admin.ModelAdmin):
         'image',
         'cooking_time',
         'author',
+        'count_favorites'
     )
     list_editable = (
         'name',
@@ -56,10 +57,26 @@ class RecipeAdmin(admin.ModelAdmin):
         'author',
     )
     search_fields = (
-        'author',
-        'name'
+        'name',
+        'author__username',
     )
     list_filter = (
         'tags',
     )
     inlines = (RecipeIngredientsInLine, RecipeTagsInLine)
+
+    def get_queryset(self, request):
+        """
+        Добавляем аннотацию для подсчета избранных рецептов.
+        """
+        queryset = super().get_queryset(request)
+        return queryset.annotate(favorites_count=Count('in_favorites'))
+
+    def count_favorites(self, obj: Recipe) -> int:
+        """
+        Возвращает количество добавлений рецепта в избранное.
+        """
+        return obj.favorites_count
+
+    count_favorites.short_description = "В избранном"
+    count_favorites.admin_order_field = 'favorites_count'

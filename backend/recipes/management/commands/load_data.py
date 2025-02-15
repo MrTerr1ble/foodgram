@@ -35,13 +35,15 @@ class Command(BaseCommand):
                         else:
                             self.stdout.write(
                                 self.style.NOTICE(
-                                    f'Объект уже существует: {name} ({measurement_unit})'
+                                    'Объект уже существует:'
+                                    f'{name} ({measurement_unit})'
                                 )
                             )
                     except Exception as e:
                         self.stdout.write(
                             self.style.ERROR(
-                                f'Ошибка при добавлении объекта {name} ({measurement_unit}): {e}'
+                                'Ошибка при добавлении объекта'
+                                f'{name} ({measurement_unit}): {e}'
                             )
                         )
         except FileNotFoundError:

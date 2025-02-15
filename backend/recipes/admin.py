@@ -70,7 +70,7 @@ class RecipeAdmin(admin.ModelAdmin):
         Добавляем аннотацию для подсчета избранных рецептов.
         """
         queryset = super().get_queryset(request)
-        return queryset.annotate(favorites_count=Count('in_favorites'))
+        return queryset.annotate(favorites_count=Count('favorite_items'))
 
     def count_favorites(self, obj: Recipe) -> int:
         """

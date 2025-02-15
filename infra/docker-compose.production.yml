@@ -1,7 +1,7 @@
 version: '3'
 
 volumes:
-  pg_data:
+  db_data:
   static:
   media:
 
@@ -10,7 +10,7 @@ services:
     image: postgres:13
     env_file: ../.env
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
   backend:
     image: mrterr1ble/foodgram_backend
     env_file: ../.env
@@ -18,7 +18,7 @@ services:
       - db
     volumes:
       - static:/backend_static
-      - media:/media
+      - media:/backend_media
   frontend:
     image: mrterr1ble/foodgram_frontend
     env_file: ../.env

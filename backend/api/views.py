@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Sum
+from django.db.models import Count
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -24,18 +24,12 @@ from api.serializers import (
     TagSerializer,
     WriteRecipeSerializer,
 )
-from recipes.models import (
-    CartItem,
-    FavoriteItem,
-    Ingredient,
-    IngredientInRecipe,
-    Recipe,
-    Tag,
-)
+from recipes.models import CartItem, FavoriteItem, Ingredient, Recipe, Tag
 from users.models import Subscription
 
 from .filters import IngredientFilter, RecipeFilter
 from .permissions import IsAdminAuthorOrReadOnly
+from .utils import generate_shopping_list
 
 User = get_user_model()
 
@@ -50,7 +44,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class CustomUserViewSet(UserViewSet):
-    queryset = User.objects.all()
+    queryset = User.objects.annotate(recipes_count=Count('recipes'))
     serializer_class = CustomUserSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
     pagination_class = CustomLimitPagination
@@ -124,42 +118,33 @@ class CustomUserViewSet(UserViewSet):
 
     @action(['post', 'delete'], detail=True)
     def subscribe(self, request, id):
-        author = get_object_or_404(User, id=id)
+        author_id = id
         user = request.user
-        if user == author:
-            return Response(
-                {'error': 'Вы не можете подписаться/отписаться на/от себя.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        if self.request.method == 'POST':
-            if Subscription.objects.filter(user=user, author=author).exists():
-                return Response(
-                    {'error': 'Вы уже подписаны на этого пользователя.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            subscription = Subscription.objects.create(
-                user=user,
-                author=author
-            )
+        if request.method == 'POST':
             serializer = SubscribeSerializer(
-                subscription,
+                data={'author': author_id},
                 context={'request': request}
             )
+            if serializer.is_valid():
+                serializer.save()
+                return Response(
+                    serializer.data,
+                    status=status.HTTP_201_CREATED
+                )
             return Response(
-                serializer.data,
-                status=status.HTTP_201_CREATED
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
             )
-        elif self.request.method == 'DELETE':
-            subscription = Subscription.objects.filter(
-                user=user,
-                author=author
-            )
-            if not subscription.exists():
+        elif request.method == 'DELETE':
+            author = get_object_or_404(User, id=author_id)
+            deleted_count, _ = Subscription.objects.filter(
+                user=user, author=author
+            ).delete()
+            if deleted_count == 0:
                 return Response(
                     {'error': 'Вы не подписаны на этого пользователя.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            subscription.delete()
             return Response(
                 {'message': 'Вы успешно отписались от пользователя.'},
                 status=status.HTTP_204_NO_CONTENT
@@ -173,7 +158,11 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    queryset = Recipe.objects.all()
+    queryset = Recipe.objects.all().select_related(
+        'author'
+    ).prefetch_related(
+        'ingredients', 'tags'
+    )
     permission_classes = (IsAdminAuthorOrReadOnly,)
     pagination_class = CustomLimitPagination
     filterset_class = RecipeFilter
@@ -282,37 +271,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='download_shopping_cart')
     def download_shopping_list(self, request):
         user = request.user
-        if not user.is_authenticated:
-            return Response(
-                {
-                    'detail':
-                    'Вы должны быть авторизованы для скачивания списка.'
-                },
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        cart_items = CartItem.objects.filter(
-            user=user).values_list('recipe', flat=True)
-        if not cart_items.exists():
-            return Response(
-                {'detail': 'Ваш список покупок пуст.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        ingredients_summary = (
-            IngredientInRecipe.objects
-            .filter(recipe__in=cart_items)
-            .values('ingredient__name', 'ingredient__measurement_unit')
-            .annotate(total_amount=Sum('amount'))
-            .order_by('ingredient__name')
-        )
-        shopping_list_text = "Список покупок:\n\n"
-        for item in ingredients_summary:
-            ingredient_name = item['ingredient__name']
-            total_amount = item['total_amount']
-            unit = item['ingredient__measurement_unit']
-            shopping_list_text += (
-                f'{ingredient_name} — {total_amount} {unit}\n'
-            )
-        response = HttpResponse(shopping_list_text, content_type='text/plain')
+        buffer = generate_shopping_list(user)
+        response = HttpResponse(buffer, content_type='text/plain')
         response['Content-Disposition'] = (
             'attachment; filename="shopping_list.txt"'
         )

@@ -91,6 +91,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+PAGE_SIZE = 6
 
 LANGUAGE_CODE = 'ru-RU'
 

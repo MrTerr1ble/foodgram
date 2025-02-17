@@ -2,6 +2,7 @@ import base64
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer, UserSerializer
 from rest_framework import serializers
 
@@ -284,6 +285,13 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
             seen_tag_ids.add(tag_id)
         return value
 
+    def validate_cooking_time(self, value):
+        if value < 0:
+            raise serializers.ValidationError(
+                'Время приготовления не может быть отрицательным.'
+            )
+        return value
+
 
 class FavoriteRecipeSerializer(serializers.ModelSerializer):
     image = Base64ImageField()
@@ -306,8 +314,12 @@ class SubscribeSerializer(serializers.ModelSerializer):
     last_name = serializers.ReadOnlyField(source='author.last_name')
     is_subscribed = serializers.SerializerMethodField()
     recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.SerializerMethodField()
-    avatar = Base64ImageField(source='author.avatar')
+    recipes_count = serializers.IntegerField(default=0, read_only=True)
+    avatar = Base64ImageField(
+        source='author.avatar',
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Subscription
@@ -323,6 +335,39 @@ class SubscribeSerializer(serializers.ModelSerializer):
             'avatar'
         )
 
+    def validate(self, data):
+        user = self.context['request'].user
+        author_id = self.context['request'].parser_context['kwargs']['id']
+        author = get_object_or_404(User, id=author_id)
+
+        if user == author:
+            raise serializers.ValidationError(
+                {'error': 'Вы не можете подписаться/отписаться на/от себя.'}
+            )
+        request_method = self.context['request'].method
+        if request_method == 'POST':
+            if Subscription.objects.filter(
+                user=user, author=author
+            ).exists():
+                raise serializers.ValidationError(
+                    {'error': 'Вы уже подписаны на этого пользователя.'}
+                )
+        elif request_method == 'DELETE':
+            if not Subscription.objects.filter(
+                user=user, author=author
+            ).exists():
+                raise serializers.ValidationError(
+                    {'error': 'Вы не подписаны на этого пользователя.'}
+                )
+        return data
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        author_id = self.context['request'].parser_context['kwargs']['id']
+        author = get_object_or_404(User, id=author_id)
+        subscription = Subscription.objects.create(user=user, author=author)
+        return subscription
+
     def get_is_subscribed(self, obj):
         user = self.context.get('request').user
         return Subscription.objects.filter(
@@ -331,15 +376,12 @@ class SubscribeSerializer(serializers.ModelSerializer):
 
     def get_recipes(self, obj):
         request = self.context.get('request')
-        limit = request.GET.get('recipes_limit', 6)
-        try:
-            limit = int(limit)
-        except (ValueError, TypeError):
+        recipes_limit = request.GET.get('recipes_limit', '6')
+        if isinstance(recipes_limit, str) and recipes_limit.isdigit():
+            limit = int(recipes_limit)
+        else:
             limit = 6
         recipes = Recipe.objects.filter(author=obj.author)[:limit]
         return FavoriteRecipeSerializer(
             recipes, many=True, context={'request': request}
         ).data
-
-    def get_recipes_count(self, obj):
-        return Recipe.objects.filter(author=obj.author).count()

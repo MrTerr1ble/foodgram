@@ -8,11 +8,6 @@ class RecipeIngredientsInLine(admin.TabularInline):
     extra = 1
 
 
-class RecipeTagsInLine(admin.TabularInline):
-    model = Recipe.tags.through
-    extra = 1
-
-
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
     list_display = (
@@ -62,4 +57,4 @@ class RecipeAdmin(admin.ModelAdmin):
     list_filter = (
         'tags',
     )
-    inlines = (RecipeIngredientsInLine, RecipeTagsInLine)
+    inlines = (RecipeIngredientsInLine, )

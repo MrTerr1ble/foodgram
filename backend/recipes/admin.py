@@ -9,11 +9,6 @@ class RecipeIngredientsInLine(admin.TabularInline):
     extra = 1
 
 
-class RecipeTagsInLine(admin.TabularInline):
-    model = Recipe.tags.through
-    extra = 1
-
-
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
     list_display = (
@@ -61,20 +56,5 @@ class RecipeAdmin(admin.ModelAdmin):
     list_filter = (
         'tags',
     )
-    inlines = (RecipeIngredientsInLine, RecipeTagsInLine)
-
-    def get_queryset(self, request):
-        """
-        Добавляем аннотацию для подсчета избранных рецептов.
-        """
-        queryset = super().get_queryset(request)
-        return queryset.annotate(favorites_count=Count('favorite_items'))
-
-    def count_favorites(self, obj: Recipe) -> int:
-        """
-        Возвращает количество добавлений рецепта в избранное.
-        """
-        return obj.favorites_count
-
-    count_favorites.short_description = "В избранном"
-    count_favorites.admin_order_field = 'favorites_count'
+    
+    inlines = (RecipeIngredientsInLine, )

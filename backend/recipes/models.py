@@ -1,4 +1,8 @@
-from django.core.validators import MinValueValidator, RegexValidator
+from django.core.validators import (
+    MaxValueValidator,
+    MinValueValidator,
+    RegexValidator,
+)
 from django.db import models
 
 from users.models import User
@@ -11,7 +15,6 @@ class Tag(models.Model):
     )
     slug = models.CharField(
         max_length=32,
-        null=True,
         verbose_name='Название slug',
         validators=[RegexValidator(
             regex=r'^[-a-zA-Z0-9_]+$',
@@ -48,6 +51,7 @@ class Ingredient(models.Model):
 class Recipe(models.Model):
     tags = models.ManyToManyField(
         Tag,
+        related_name='recipes',
         verbose_name='Теги',
     )
     author = models.ForeignKey(
@@ -68,18 +72,21 @@ class Recipe(models.Model):
     text = models.TextField(
         verbose_name='Текстовое описание'
     )
-    cooking_time = models.PositiveIntegerField(
+    cooking_time = models.PositiveSmallIntegerField(
         verbose_name='Время приготовления в минутах',
         validators=[
-            MinValueValidator(1)
+            MinValueValidator(1),
+            MaxValueValidator(2000)
         ]
     )
     image = models.ImageField(
         verbose_name='Картинка',
         upload_to='media/recipes/',
     )
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        ordering = ['-created_at']
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
 
@@ -102,27 +109,33 @@ class IngredientInRecipe(models.Model):
     amount = models.PositiveSmallIntegerField(
         verbose_name='Количество',
         validators=[
-            MinValueValidator(1)
+            MinValueValidator(1),
+            MaxValueValidator(10000)
         ]
     )
 
 
-class CartItem(models.Model):
+class AbstractItem(models.Model):
     user = models.ForeignKey(
         User,
+        related_name='%(class)s_items',
         on_delete=models.CASCADE,
-        related_name='cart_items',
         verbose_name='Пользователь'
     )
     recipe = models.ForeignKey(
         Recipe,
+        related_name='%(class)s_items',
         on_delete=models.CASCADE,
-        related_name='cart_items',
         verbose_name='Рецепт'
     )
 
     class Meta:
         unique_together = ('user', 'recipe')
+        abstract = True
+
+
+class CartItem(AbstractItem):
+    class Meta:
         verbose_name = 'Корзина'
         verbose_name_plural = 'Корзина'
 
@@ -130,22 +143,8 @@ class CartItem(models.Model):
         return f'{self.user.username} - {self.recipe.name}'
 
 
-class FavoriteItem(models.Model):
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='favorite_items',
-        verbose_name='Пользователь'
-    )
-    recipe = models.ForeignKey(
-        Recipe,
-        on_delete=models.CASCADE,
-        related_name='favorite_items',
-        verbose_name='Рецепт'
-    )
-
+class FavoriteItem(AbstractItem):
     class Meta:
-        unique_together = ('user', 'recipe')
         verbose_name = 'Избранный товар'
         verbose_name_plural = 'Избранные товары'
 

@@ -5,12 +5,12 @@ from django.db import models
 
 class User(AbstractUser):
     email = models.EmailField(
-        "Почта",
-        max_length=150,
+        verbose_name='Почта',
+        max_length=254,
         unique=True
     )
     username = models.CharField(
-        "Имя пользователя",
+        verbose_name='Имя пользователя',
         max_length=150,
         unique=True,
         validators=[RegexValidator(
@@ -20,17 +20,16 @@ class User(AbstractUser):
     )
 
     first_name = models.CharField(
-        'Имя',
+        verbose_name='Имя',
         max_length=150,
     )
     last_name = models.CharField(
-        'Фамилия',
+        verbose_name='Фамилия',
         max_length=150,
     )
 
     avatar = models.ImageField(
         blank=True,
-        null=True,
         upload_to='media/avatars/',
     )
 

@@ -13,33 +13,40 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         file_path = kwargs['file_path']
-        with open(file_path, mode='r', encoding='utf-8') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                if len(row) != 2:
-                    self.stdout.write(self.style.WARNING(
-                        f'Пропущена некорректная строка: {row}')
-                    )
-                    continue
-                name, measurement_unit = row
-                try:
-                    obj, created = Ingredient.objects.get_or_create(
-                        name=name,
-                        defaults={'measurement_unit': measurement_unit}
-                    )
-                    if created:
-                        self.stdout.write(self.style.SUCCESS(
-                            f'Добавлен объект: {name} ({measurement_unit})'
+        try:
+            with open(file_path, mode='r', encoding='utf-8') as file:
+                reader = csv.reader(file)
+                for row in reader:
+                    if len(row) != 2:
+                        self.stdout.write(self.style.WARNING(
+                            f'Пропущена некорректная строка: {row}'
                         ))
-                    else:
-                        self.stdout.write(
-                            self.style.NOTICE(
-                                'Объект уже существует:',
-                                f'{name} ({measurement_unit})'
+                        continue
+                    name, measurement_unit = row
+                    try:
+                        obj, created = Ingredient.objects.get_or_create(
+                            name=name,
+                            defaults={'measurement_unit': measurement_unit}
+                        )
+                        if created:
+                            self.stdout.write(self.style.SUCCESS(
+                                f'Добавлен объект: {name} ({measurement_unit})'
                             ))
-                except Exception as e:
-                    self.stdout.write(
-                        self.style.ERROR(
-                            'Ошибка при добавлении объекта',
-                            f'{name} ({measurement_unit}): {e}'
-                        ))
+                        else:
+                            self.stdout.write(
+                                self.style.NOTICE(
+                                    'Объект уже существует:'
+                                    f'{name} ({measurement_unit})'
+                                )
+                            )
+                    except Exception as e:
+                        self.stdout.write(
+                            self.style.ERROR(
+                                'Ошибка при добавлении объекта'
+                                f'{name} ({measurement_unit}): {e}'
+                            )
+                        )
+        except FileNotFoundError:
+            self.stdout.write(self.style.ERROR(f'Файл не найден: {file_path}'))
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'Произошла ошибка: {e}'))

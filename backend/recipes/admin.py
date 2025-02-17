@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Count
 
 from .models import Ingredient, Recipe, Tag
 
@@ -36,12 +37,10 @@ class IngredientAdmin(admin.ModelAdmin):
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
     list_display = (
-        'id',
         'name',
-        'text',
         'image',
-        'cooking_time',
         'author',
+        'count_favorites'
     )
     list_editable = (
         'name',
@@ -51,10 +50,11 @@ class RecipeAdmin(admin.ModelAdmin):
         'author',
     )
     search_fields = (
-        'author',
-        'name'
+        'name',
+        'author__username',
     )
     list_filter = (
         'tags',
     )
+    
     inlines = (RecipeIngredientsInLine, )

@@ -56,5 +56,15 @@ class RecipeAdmin(admin.ModelAdmin):
     list_filter = (
         'tags',
     )
-    
+
     inlines = (RecipeIngredientsInLine, )
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request) 
+        return queryset.annotate(favorites_count=Count('favorite_items'))
+
+    def count_favorites(self, obj: Recipe):
+        return obj.favorites_count
+
+    count_favorites.short_description = "В избранном"
+    count_favorites.admin_order_field = 'favorites_count'

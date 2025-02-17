@@ -37,9 +37,12 @@ class IngredientAdmin(admin.ModelAdmin):
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
     list_display = (
+        'id',
         'name',
         'image',
+        'text',
         'author',
+        'cooking_time',
         'count_favorites'
     )
     list_editable = (

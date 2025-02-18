@@ -199,49 +199,56 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         )
         model = Recipe
 
+    def handle_recipe_data(self, instance, validated_data):
+        tags_data = validated_data.pop('tags', None)
+        if tags_data is not None:
+            instance.tags.set(tags_data)
+        ingredients_data = validated_data.pop('ingredients', None)
+        if ingredients_data:
+            instance.ingredients.clear()
+            ingredient_in_recipe_list = [
+                IngredientInRecipe(
+                    recipe=instance,
+                    ingredient_id=ingredient_data['id'],
+                    amount=ingredient_data['amount']
+                )
+                for ingredient_data in ingredients_data
+            ]
+            IngredientInRecipe.objects.bulk_create(ingredient_in_recipe_list)
+
     def create(self, validated_data):
-        tags_data = validated_data.pop('tags', [])
-        ingredients_data = validated_data.pop('ingredients', [])
         validated_data['author'] = self.context['request'].user
+        tags_data = validated_data.pop('tags', None)
+        ingredients_data = validated_data.pop('ingredients', None)
+
         recipe = Recipe.objects.create(**validated_data)
-        recipe.tags.set(tags_data)
-        for ingredient_data in ingredients_data:
-            ingredient_id = ingredient_data['id']
-            amount = ingredient_data['amount']
-            IngredientInRecipe.objects.create(
-                recipe=recipe, ingredient_id=ingredient_id, amount=amount
-            )
+
+        self.handle_recipe_data(
+            recipe,
+            {'tags': tags_data, 'ingredients': ingredients_data}
+        )
+
         return recipe
 
     def update(self, instance, validated_data):
         tags_data = validated_data.pop('tags', None)
+        ingredients_data = validated_data.pop('ingredients', None)
+
+        errors = {}
         if tags_data is None:
-            raise serializers.ValidationError(
-                {'tags': 'Поле "tags" обязательно для заполнения.'}
-            )
-        if not tags_data:
-            raise serializers.ValidationError(
-                {'tags': 'Добавьте хотя бы один тег.'}
-            )
-        instance.tags.set(tags_data)
-        ingredients_data = validated_data.pop('ingredients', [])
-        if ingredients_data is not None and not ingredients_data:
-            raise serializers.ValidationError(
-                {'ingredients': 'Добавьте хотя бы один ингредиент.'}
-            )
-        if ingredients_data:
-            instance.ingredients.clear()
-            for ingredient_data in ingredients_data:
-                ingredient_id = ingredient_data['id']
-                amount = ingredient_data['amount']
-                IngredientInRecipe.objects.create(
-                    recipe=instance,
-                    ingredient_id=ingredient_id,
-                    amount=amount
-                )
-        for key, value in validated_data.items():
-            setattr(instance, key, value)
-        instance.save()
+            errors['tags'] = 'Это поле обязательно.'
+        if ingredients_data is None:
+            errors['ingredients'] = 'Это поле обязательно.'
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        instance = super().update(instance, validated_data)
+
+        self.handle_recipe_data(
+            instance,
+            {'tags': tags_data, 'ingredients': ingredients_data}
+        )
+
         return instance
 
     def to_representation(self, instance):
@@ -274,15 +281,15 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
 
     def validate_tags(self, value):
         if not value:
-            raise serializers.ValidationError('Добавьте хотя бы один тег.')
-        seen_tag_ids = set()
-        for tag in value:
-            tag_id = tag.id
-            if tag_id in seen_tag_ids:
-                raise serializers.ValidationError(
-                    f'Тег с ID {tag_id} уже добавлен.'
-                )
-            seen_tag_ids.add(tag_id)
+            raise serializers.ValidationError(
+                'Добавьте хотя бы один тег.'
+            )
+
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError(
+                'Список тегов содержит дубликаты.'
+            )
+
         return value
 
     def validate_cooking_time(self, value):

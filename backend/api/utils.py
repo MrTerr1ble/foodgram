@@ -18,7 +18,7 @@ def generate_shopping_list(user):
         .annotate(total_amount=Sum('amount'))
         .order_by('ingredient__name')
     )
-    shopping_list_text = "Список покупок:\n\n"
+    shopping_list_text = 'Список покупок:\n\n'
     for item in ingredients_summary:
         ingredient_name = item['ingredient__name']
         total_amount = item['total_amount']

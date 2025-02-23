@@ -122,7 +122,6 @@ class CustomUserViewSet(UserViewSet):
         author_id = id
         user = request.user
         if request.method == 'POST':
-            # Получаем объект автора
             author = get_object_or_404(User, id=author_id)
             serializer = SubscribeSerializer(
                 data={'author': author_id},
@@ -139,20 +138,20 @@ class CustomUserViewSet(UserViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         elif request.method == 'DELETE':
-            subscription = Subscription.objects.filter(
+            deleted_count, _ = Subscription.objects.filter(
                 user=user, author_id=author_id
-            )
+            ).delete()
 
-            if subscription.exists():
-                subscription.delete()
+            if deleted_count > 0:
                 return Response(
                     {'message': 'Вы успешно отписались от пользователя.'},
                     status=status.HTTP_204_NO_CONTENT
                 )
-            return Response(
-                {'error': 'Вы не подписаны на этого пользователя.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            else:
+                return Response(
+                    {'error': 'Вы не подписаны на этого пользователя.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -180,8 +179,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return {'request': self.request}
 
     def recipe_post_delete(self, request, pk, model, serializer_class):
-        recipe = get_object_or_404(Recipe, id=pk)
         if request.method == 'POST':
+            recipe = get_object_or_404(Recipe, id=pk)
             serializer = serializer_class(
                 data={
                     'user': request.user.id,
@@ -192,17 +191,19 @@ class RecipeViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        if request.method == 'DELETE':
-            if not model.objects.filter(
+        elif request.method == 'DELETE':
+            deleted_count, _ = model.objects.filter(
                 user=request.user,
-                recipe=recipe
-            ).exists():
-                return Response(status=status.HTTP_400_BAD_REQUEST)
-            model.objects.filter(
-                user=request.user,
-                recipe=recipe
+                recipe_id=pk
             ).delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+
+            if deleted_count > 0:
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            else:
+                return Response(
+                    {'error': 'Запись не найдена.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
     @action(
         detail=True,

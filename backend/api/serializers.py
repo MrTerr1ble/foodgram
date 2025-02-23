@@ -251,7 +251,6 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         return serializer.data
 
     def validate(self, attrs):
-        print(attrs)
         ingredients = attrs.get('ingredients')
         tags = attrs.get('tags')
 
@@ -324,10 +323,9 @@ class RecipeShortViewSerializer(serializers.ModelSerializer):
 
 
 class FavoriteSerializer(serializers.ModelSerializer):
-    """Working with favorite recipes."""
     class Meta:
         model = FavoriteItem
-        fields = '__all__'
+        fields = ('user', 'recipe')
         validators = [
             UniqueTogetherValidator(
                 queryset=FavoriteItem.objects.all(),
@@ -335,14 +333,6 @@ class FavoriteSerializer(serializers.ModelSerializer):
                 message='Рецепт уже добавлен в избранное'
             )
         ]
-
-    def create(self, validated_data):
-        favorite_item, created = FavoriteItem.objects.get_or_create(
-            **validated_data
-        )
-        if not created:
-            raise serializers.ValidationError('Рецепт уже в избранном')
-        return favorite_item
 
     def to_representation(self, instance):
         request = self.context.get('request')
@@ -353,10 +343,9 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
 
 class ShoppingCartSerializer(serializers.ModelSerializer):
-    """Working with a shopping carts."""
     class Meta:
         model = CartItem
-        fields = '__all__'
+        fields = ('user', 'recipe')
         validators = [
             UniqueTogetherValidator(
                 queryset=CartItem.objects.all(),
@@ -364,12 +353,6 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
                 message='Рецепт уже добавлен в список покупок'
             )
         ]
-
-    def create(self, validated_data):
-        cart_item, created = CartItem.objects.get_or_create(**validated_data)
-        if not created:
-            raise serializers.ValidationError('Рецепт уже в корзине')
-        return cart_item
 
     def to_representation(self, instance):
         request = self.context.get('request')

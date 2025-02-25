@@ -241,7 +241,6 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         IngredientInRecipe.objects.filter(recipe=instance).delete()
         super().update(instance, validated_data)
         self.add_ingredients(ingredients, instance)
-        instance.save()
         return instance
 
     def to_representation(self, instance):
@@ -362,7 +361,7 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
         ).data
 
 
-class SubscribeSerializer(serializers.ModelSerializer):
+class SubscriptionDetailSerializer(serializers.ModelSerializer):
     email = serializers.ReadOnlyField(source='author.email')
     id = serializers.ReadOnlyField(source='author.id')
     username = serializers.ReadOnlyField(source='author.username')
@@ -370,7 +369,7 @@ class SubscribeSerializer(serializers.ModelSerializer):
     last_name = serializers.ReadOnlyField(source='author.last_name')
     is_subscribed = serializers.SerializerMethodField()
     recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.IntegerField(default=0, read_only=True)
+    recipes_count = serializers.SerializerMethodField()
     avatar = Base64ImageField(
         source='author.avatar',
         required=False,
@@ -391,31 +390,6 @@ class SubscribeSerializer(serializers.ModelSerializer):
             'avatar'
         )
 
-    def validate(self, data):
-        user = self.context['request'].user
-        author_id = self.context['request'].parser_context['kwargs']['id']
-        author = get_object_or_404(User, id=author_id)
-
-        if user == author:
-            raise serializers.ValidationError(
-                {'error': 'Вы не можете подписаться/отписаться на/от себя.'}
-            )
-        request_method = self.context['request'].method
-        if request_method == 'POST':
-            if Subscription.objects.filter(
-                user=user, author=author
-            ).exists():
-                raise serializers.ValidationError(
-                    {'error': 'Вы уже подписаны на этого пользователя.'}
-                )
-
-    def create(self, validated_data):
-        user = self.context['request'].user
-        author_id = self.context['request'].parser_context['kwargs']['id']
-        author = get_object_or_404(User, id=author_id)
-        subscription = Subscription.objects.create(user=user, author=author)
-        return subscription
-
     def get_is_subscribed(self, obj):
         user = self.context.get('request').user
         return Subscription.objects.filter(
@@ -425,7 +399,7 @@ class SubscribeSerializer(serializers.ModelSerializer):
     def get_recipes(self, obj):
         request = self.context.get('request')
         recipes_limit = request.GET.get('recipes_limit', '6')
-        if isinstance(recipes_limit, str) and recipes_limit.isdigit():
+        if recipes_limit.isdigit():
             limit = int(recipes_limit)
         else:
             limit = settings.PAGE_SIZE
@@ -433,3 +407,39 @@ class SubscribeSerializer(serializers.ModelSerializer):
         return RecipeShortViewSerializer(
             recipes, many=True, context={'request': request}
         ).data
+
+    def get_recipes_count(self, obj):
+        return Recipe.objects.filter(author=obj.author).count()
+
+
+class SubscribeSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(
+        read_only=True
+    )
+
+    class Meta:
+        model = Subscription
+        fields = ('user', 'author')
+
+    def validate(self, data):
+        user = self.context['request'].user
+        author_id = self.context['request'].parser_context['kwargs']['id']
+        author = get_object_or_404(User, id=author_id)
+
+        if user == author:
+            raise serializers.ValidationError(
+                {'error': 'Вы не можете подписаться на себя.'}
+            )
+
+        if Subscription.objects.filter(user=user, author=author).exists():
+            raise serializers.ValidationError(
+                {'error': 'Вы уже подписаны на этого пользователя.'}
+            )
+
+        return data
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        author_id = self.context['request'].parser_context['kwargs']['id']
+        author = get_object_or_404(User, id=author_id)
+        return Subscription.objects.create(user=user, author=author)

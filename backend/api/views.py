@@ -22,6 +22,7 @@ from api.serializers import (
     ReadRecipeSerializer,
     ShoppingCartSerializer,
     SubscribeSerializer,
+    SubscriptionDetailSerializer,
     TagSerializer,
     WriteRecipeSerializer,
 )
@@ -110,7 +111,7 @@ class CustomUserViewSet(UserViewSet):
         )
         page = self.paginate_queryset(subscriptions)
         if page is not None:
-            serializer = SubscribeSerializer(
+            serializer = SubscriptionDetailSerializer(
                 page,
                 many=True,
                 context={'request': request}
@@ -124,13 +125,17 @@ class CustomUserViewSet(UserViewSet):
         if request.method == 'POST':
             author = get_object_or_404(User, id=author_id)
             serializer = SubscribeSerializer(
-                data={'author': author_id},
+                data={'author': author.id},
                 context={'request': request}
             )
             if serializer.is_valid():
-                serializer.save(user=user, author=author)
+                subscription = serializer.save(user=user, author=author)
+                detail_serializer = SubscriptionDetailSerializer(
+                    subscription,
+                    context={'request': request}
+                )
                 return Response(
-                    serializer.data,
+                    detail_serializer.data,
                     status=status.HTTP_201_CREATED
                 )
             return Response(
@@ -147,11 +152,10 @@ class CustomUserViewSet(UserViewSet):
                     {'message': 'Вы успешно отписались от пользователя.'},
                     status=status.HTTP_204_NO_CONTENT
                 )
-            else:
-                return Response(
-                    {'error': 'Вы не подписаны на этого пользователя.'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            return Response(
+                {'detail': 'Страница не найдена.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -199,11 +203,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
             if deleted_count > 0:
                 return Response(status=status.HTTP_204_NO_CONTENT)
-            else:
-                return Response(
-                    {'error': 'Запись не найдена.'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            return Response(
+                {'error': 'Запись не найдена.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
     @action(
         detail=True,

@@ -12,9 +12,8 @@ class RecipeIngredientsInLine(admin.TabularInline):
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
     list_display = (
-        'id',
+        'slug',
         'name',
-        'slug'
     )
     search_fields = (
         'name',
@@ -28,6 +27,10 @@ class IngredientAdmin(admin.ModelAdmin):
         'name',
         'measurement_unit'
     )
+    list_display_links = (
+        'id',
+        'name',
+    )
     search_fields = (
         'name',
     )
@@ -37,37 +40,36 @@ class IngredientAdmin(admin.ModelAdmin):
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
     list_display = (
-        'id',
         'name',
-        'image',
         'text',
         'author',
         'cooking_time',
-        'count_favorites'
-    )
-    list_editable = (
-        'name',
-        'text',
+        'count_favorites',
         'image',
-        'cooking_time',
-        'author',
     )
     search_fields = (
         'name',
-        'author__username',
     )
     list_filter = (
         'tags',
+        'author__username',
+
     )
 
     inlines = (RecipeIngredientsInLine, )
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        return queryset.annotate(favorites_count=Count('favoriteitem_items'))
+        queryset = super().get_queryset(request).select_related(
+            'author'
+        ).prefetch_related(
+            'ingredients', 'tags'
+        ).annotate(
+            favorites_count=Count('favoriteitem_items')
+        )
+        return queryset
 
     def count_favorites(self, obj: Recipe):
         return obj.favorites_count
 
-    count_favorites.short_description = "В избранном"
+    count_favorites.short_description = 'В избранном'
     count_favorites.admin_order_field = 'favorites_count'

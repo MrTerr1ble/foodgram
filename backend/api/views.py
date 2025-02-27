@@ -165,7 +165,7 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    queryset = Recipe.objects.all().select_related(
+    queryset = Recipe.objects.select_related(
         'author'
     ).prefetch_related(
         'ingredients', 'tags'
